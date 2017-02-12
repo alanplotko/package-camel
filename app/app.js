@@ -68,6 +68,16 @@ app.use(session({
 }));
 app.use(flash());
 
+var upsAPI = require('shipping-ups');
+var ups = new upsAPI({
+  environment: 'sandbox', // or live
+  username: process.env.PKGCAMEL_UPS_USERNAME,
+  password: process.env.PKGCAMEL_UPS_PASSWORD,
+  access_key: process.env.PKGCAMEL_UPS_KEY,
+  imperial: true
+});
+
+
 // --------- Assets Setup ---------
 app.use('/static', express.static(path.join(__dirname, '/assets')));
 app.set('view engine', 'pug');
@@ -83,6 +93,9 @@ app.locals.navigation = [{
 }, {
   title: 'Dashboard',
   url: '/dashboard'
+}, {
+  title: 'Settings',
+  url: '/settings'
 }];
 
 // Schemas
@@ -94,8 +107,14 @@ var userSchema = new Schema({
     }
   },
   packages: [{
-    tracking_number: String
-  }]
+    tracking_number: String,
+    method: String,
+    weight: String,
+    from: Object,
+    to: Object,
+    activity: Object
+  }],
+  subscriptions: Object
 });
 
 var User = mongoose.model('User', userSchema, 'user');
@@ -122,7 +141,8 @@ app.get('/dashboard', function(req, res) {
       return res.render('dashboard', {
           path: res.locals.path,
           email: result.email,
-          packages: result.packages
+          packages: result.packages,
+          error: req.flash('invalid_tracking_error')
       });
     }
   });
@@ -158,7 +178,8 @@ app.post('/dashboard', function(req, res) {
                 return res.render('dashboard', {
                     path: res.locals.path,
                     email: email_address,
-                    packages: []
+                    packages: [],
+                    error: req.flash('invalid_tracking_error')
                 });
               })
               .catch(err => {
@@ -167,7 +188,8 @@ app.post('/dashboard', function(req, res) {
                 return res.render('dashboard', {
                     path: res.locals.path,
                     email: email_address,
-                    packages: []
+                    packages: [],
+                    error: req.flash('invalid_tracking_error')
                 });
               });
             }
@@ -177,7 +199,8 @@ app.post('/dashboard', function(req, res) {
           return res.render('dashboard', {
               path: res.locals.path,
               email: result.email,
-              packages: result.packages
+              packages: result.packages,
+              error: req.flash('invalid_tracking_error')
           });
         }
     });
@@ -189,22 +212,167 @@ app.post('/dashboard', function(req, res) {
 
 app.post('/add/tracking', function(req, res) {
   var tracking_number = validator.trim(validator.escape(req.body.tracking_number));
-  return User.findOne({ email: req.session.email }, function(err, user) {
+  User.findOne({ email: req.session.email }, function(err, user) {
     if (err || !user || validator.isEmpty(tracking_number)) {
       delete req.session.email;
+      req.flash('invalid_tracking_error', 'Invalid tracking number. Please try again.');
+      res.send(req.flash());
       return false;
     } else {
-      user.packages.push({
-        'tracking_number': tracking_number
-      });
-      return user.save(function(err) {
-        if(err) {
+      ups.track(tracking_number, function(err, result) {
+        console.log(err);
+        console.log(result);
+        if (err) {
+          req.flash('invalid_tracking_error', 'Invalid tracking number. Please try again.');
+          res.send(req.flash());
           return false;
         } else {
-          return true;
+          delete req.session.invalid_tracking;
+          for (var i in user.packages) {
+            if (user.packages[i].tracking_number === tracking_number) {
+              req.flash('invalid_tracking_error', 'You\'re already tracking this package.');
+              res.send(req.flash());
+              return false;
+            }
+          }
+          user.packages.push({
+            'tracking_number': tracking_number,
+            'method': result.Shipment.Service.Description,
+            'weight': result.Shipment.ShipmentWeight.Weight + " " + result.Shipment.ShipmentWeight.UnitOfMeasurement.Code.toLowerCase() + ".",
+            'from': result.Shipment.Shipper.Address,
+            'to': result.Shipment.ShipTo.Address,
+            'activity': result.Shipment.Package.Activity
+          });
+          return user.save(function(err) {
+            if(err) {
+              req.flash('invalid_tracking_error', 'An error occurred. Please try again.');
+              res.send(req.flash());
+              return false;
+            } else {
+              return true;
+            }
+          });
         }
       });
     }
+  });
+});
+
+app.get('/track/:tracking_number', function(req, res) {
+  var tracking_number = validator.trim(validator.escape(req.params.tracking_number));
+  User.findOne({ email: req.session.email }, function(err, user) {
+    if (err) return res.redirect('/');
+    for (var i in user.packages) {
+      if (user.packages[i].tracking_number === tracking_number) {
+        console.log('True');
+        return res.render('track', {
+            path: res.locals.path,
+            selected_package: user.packages[i]
+        });
+      }
+    }
+    return res.render('track', {
+      path: res.locals.path,
+      selected_package: null
+    });
+  });
+});
+
+app.get('/settings', function(req, res) {
+  User.findOne({ email: req.session.email }, function(err, user) {
+    if (err || !user) return res.redirect('/');
+
+    return res.render('settings', {
+        path: res.locals.path,
+        settings: user.subscriptions == undefined ? {} : user.subscriptions
+    });
+  });
+});
+
+app.post('/update/notifications', function(req, res) {
+  User.findOne({ email: req.session.email }, function(err, user) {
+    if (err || !user) return res.redirect('/');
+    if (user) {
+      user.subscriptions = req.body;
+      user.save(function(err, result) {
+        return res.redirect('/settings');
+      })
+    } else {
+      return res.redirect('/settings');
+    }
+  });
+});
+
+app.get('/update/all/users', function(req, res) {
+  User.find({}, function(err, users) {
+    users.forEach(function(user) {
+      for (var i = 0; i < user.packages.length; i++) {
+        var activity = user.packages[i].activity;
+        var currIdx = i;
+        ups.track(user.packages[i].tracking_number, function(err, result) {
+          if (err) {
+            return;
+          } else {
+            user.packages[currIdx].activity = result.Shipment.Package.Activity;
+            user.save(function(err) {
+              if(err) {
+                return;
+              } else {
+                if (activity.length < user.packages[currIdx].activity.length) {
+                  var diff = user.packages[currIdx].activity.length - activity.length - 1;
+                  for (var j = diff; j >= 0; j--) {
+                    var message = null;
+                    console.log(j);
+                    if (user.packages[j].activity.Status.StatusType.Description.toLowerCase().includes('delivered') &&
+                      user.subscriptions.hasOwnProperty('delivered')) {
+                      message = "Your package has been marked as delivered by UPS!"
+                    }
+                    else if (user.packages[j].activity.Status.StatusType.Description.toLowerCase().includes('out for delivery') &&
+                      user.subscriptions.hasOwnProperty('out_for_delivery')) {
+                      message = "Your package has been marked as out for delivery!"
+                    }
+                    else if (user.packages[j].activity.Status.StatusType.Description.toLowerCase().includes('departure scan') &&
+                      user.subscriptions.hasOwnProperty('departure_scan')) {
+                      message = "Your package has just departed " + user.packages[j].activity.user.packages[j].activityLocation.Address.City + ", " + user.packages[j].activity.user.packages[j].activityLocation.Address.StateProvinceCode + "!"
+                    }
+                    else if (user.packages[j].activity.Status.StatusType.Description.toLowerCase().includes('arrival scan') &&
+                      user.subscriptions.hasOwnProperty('arrival_scan')) {
+                      message = "Your package has just arrived at " + user.packages[j].activity.user.packages[j].activityLocation.Address.City + ", " + user.packages[j].activity.user.packages[j].activityLocation.Address.StateProvinceCode + "!"
+                    }
+                    else if (user.packages[j].activity.Status.StatusType.Description.toLowerCase().includes('origin') &&
+                      user.subscriptions.hasOwnProperty('origin')) {
+                      message = "Your package has just gone through the origin scan!"
+                    }
+                    else if (user.packages[j].activity.Status.StatusType.Description.toLowerCase().includes('billing information received') &&
+                      user.subscriptions.hasOwnProperty('billing_information_received')) {
+                      message = "UPS has received billing information for your package!"
+                    }
+                    if (message != null) {
+                      sparkpost_client.transmissions.send({
+                        content: {
+                          from: 'postmaster@packagecamel.alanplotko.com',
+                          subject: '[Update] ' + user.packages[j].tracking_number,
+                          html:'<html><body><p>Hi there!</p><p>' + message + '</p><p>Enjoy!</p></body></html>'
+                        },
+                        recipients: [{
+                          address: user.email
+                        }]
+                      })
+                      .then(data => {
+                        console.log(data);
+                      })
+                      .catch(err => {
+                        console.log(err);
+                      });
+                    }
+                  }
+                }
+              }
+            });
+          }
+        });
+      }
+    });
   });
 });
 

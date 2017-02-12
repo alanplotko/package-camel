@@ -1,0 +1,41 @@
+extends layout
+
+block content
+  .ui.container.center.aligned
+    if !selected_package
+      h1.padded We couldn't find this tracking number in your tracked packages.
+      br
+      a.ui.huge.tracking.button.blue(href='/') Return to Dashboard
+    else
+      each activity in selected_package.activity
+        .ui.icon.message
+          if activity.Status.StatusType.Description.toLowerCase().includes('delivered')
+            i.black.home.icon
+          else if activity.Status.StatusType.Description.toLowerCase().includes('out for delivery')
+            i.black.shipping.icon
+          else if activity.Status.StatusType.Description.toLowerCase().includes('departure scan')
+            i.black.video.play.icon
+          else if activity.Status.StatusType.Description.toLowerCase().includes('arrival scan')
+            i.black.pause.circle.icon
+          else if activity.Status.StatusType.Description.toLowerCase().includes('origin')
+            i.black.check.square.icon
+          else if activity.Status.StatusType.Description.toLowerCase().includes('billing information received')
+            i.black.credit.card.alternative.icon
+          else
+            i.red.location.arrow.icon
+          .content
+            .header.small-spacing #{activity.Status.StatusType.Description}
+            .sub.header.small-spacing #{moment(`${activity.Date} ${activity.Time}`).format('dddd, MMMM Do, YYYY h:mma')}
+            if activity.Status.StatusType.Description.toLowerCase().includes('delivered')
+              .ui.blue.label
+                i.pencil.icon
+                span #{activity.ActivityLocation.SignedForByName}
+                .detail #{activity.ActivityLocation.Description}
+            if activity.ActivityLocation.Address.City
+              .ui.green.label
+                i.location.marker.icon
+                span #{activity.ActivityLocation.Address.City}
+                .detail #{activity.ActivityLocation.Address.StateProvinceCode}
+
+block scripts
+  script(type="text/javascript") $('.ui.accordion').accordion();

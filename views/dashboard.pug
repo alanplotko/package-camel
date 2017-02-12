@@ -7,9 +7,9 @@ block content
       br
       button.ui.huge.tracking.button.blue Add Tracking Number
     else
-      .ui.four.column.grid.slightly-padded
+      .ui.four.column.relaxed.grid.slightly-padded
         .column
-          .ui.fluid.card
+          .ui.card
             .content
               .header New Package Tracking
               .description Want to add a new package?<br />Let's get started!
@@ -18,11 +18,12 @@ block content
               span Add Tracking Number
         for package in packages
           .column
-            .ui.fluid.card
+            .ui.card
+              .ui.blue.ribbon.label #{package.method}
               .content
                 .header #{package.tracking_number}
-                .description Some package
-              .ui.bottom.attached.orange.button
+                .description Arriving from #{package.from.City}, #{package.from.StateProvinceCode}
+              a.ui.bottom.attached.brown.button(href=`/track/${package.tracking_number}`)
                 i.edit.icon
                 span Manage Package
 
@@ -32,14 +33,16 @@ block content
       span Add Tracking Number
     .content
       p Enter your UPS tracking number below to add it to your dashboard!
+      #tracking_number_warning.ui.warning.message.hidden
+        .header
       .ui.fluid.icon.large.input
         input#tracking_number(type="text", placeholder="UPS Tracking Number")
         i.search.icon
     .actions
-      .ui.red.cancel.inverted.button
+      .ui.red.cancel.button
         i.remove.icon
         span Cancel
-      .ui.green.ok.inverted.button
+      .ui.green.ok.button
         i.checkmark.icon
         span Add
 

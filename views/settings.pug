@@ -1,0 +1,32 @@
+extends layout
+
+block content
+  .ui.container.left-padded
+    h1.small-spacing Notification Settings
+    form.ui.form(action='/update/notifications', method='POST')
+      h3.label Stages
+      .field
+        .ui.slider.checkbox.small-margin
+          input(type='checkbox', name='delivered', checked=(settings.delivered == 'on') ? 'checked' : undefined)
+          label Delivered
+      .field
+        .ui.slider.checkbox.small-margin
+          input(type='checkbox', name='out_for_delivery', checked=(settings.out_for_delivery == 'on') ? 'checked' : undefined)
+          label Out for Delivery
+      .field
+        .ui.slider.checkbox.small-margin
+          input(type='checkbox', name='arrival_scan', checked=(settings.arrival_scan == 'on') ? 'checked' : undefined)
+          label Arrival Scan
+      .field
+        .ui.slider.checkbox.small-margin
+          input(type='checkbox', name='departure_scan', checked=(settings.departure_scan == 'on') ? 'checked' : undefined)
+          label Departure Scan
+      .field
+        .ui.slider.checkbox.small-margin
+          input(type='checkbox', name='billing_info_received', checked=(settings.billing_info_received == 'on') ? 'checked' : undefined)
+          label Billing Information Received
+      .field
+        .ui.slider.checkbox.small-margin
+          input(type='checkbox', name='origin_scan', checked=(settings.origin_scan == 'on') ? 'checked' : undefined)
+          label Origin Scan
+      button.ui.blue.submit.button.small-margin(type='submit') Update Settings

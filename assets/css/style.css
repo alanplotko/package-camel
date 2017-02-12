@@ -8,6 +8,24 @@ button.large-text {
     margin-top: 200px;
 }
 
+.ui.icon.message {
+    width: 600px;
+    margin: 10px auto;
+}
+
+.ui.ribbon.label {
+    left: calc(-1rem);
+    width: 50px;
+    margin-right: -1.2em;
+    padding-left: calc(1rem + 1.2em);
+    padding-right: 1.2em;
+}
+
+.ui.card > .content,
+.ui.cards > .card > .content {
+    border-top: none;
+}
+
 input.long {
     width: 300px!important;
 }
@@ -17,12 +35,24 @@ input.long {
     margin: 0 auto 10px auto;
 }
 
+.left-padded {
+    padding-left: 30px;
+}
+
 .ui.extra.header {
     font-size: 48px!important;
 }
 
 .extra.sub.header {
     font-size: 24px!important;
+}
+
+.small-margin {
+    margin-top: 20px!important;
+}
+
+.small-spacing {
+    padding-bottom: 10px!important;
 }
 
 .slightly-padded {
