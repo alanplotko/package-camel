@@ -1,3 +1,4 @@
-# package-camel
-A dashboard for tracking UPS packages with opt-in package notifications.
-This doesn't actually do anything yet. Stay tuned!
+# Package Camel
+
+A dashboard for tracking UPS packages with opt-in package notifications. Developed at BrickHack 3.
+
