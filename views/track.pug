@@ -6,36 +6,72 @@ block content
       h1.padded We couldn't find this tracking number in your tracked packages.
       br
       a.ui.huge.tracking.button.blue(href='/') Return to Dashboard
+    else if selected_package.activity.length === 0
+      h1.padded This package has no activity at this time.
+      br
+      a.ui.huge.tracking.button.blue(href='/') Return to Dashboard
     else
-      each activity in selected_package.activity
+      if Array.isArray(selected_package.activity)
+        each activity in selected_package.activity
+          .ui.icon.message
+            if activity.Status.StatusType.Description.toLowerCase().includes('delivered')
+              i.black.home.icon
+            else if activity.Status.StatusType.Description.toLowerCase().includes('out for delivery')
+              i.black.shipping.icon
+            else if activity.Status.StatusType.Description.toLowerCase().includes('departure scan')
+              i.black.video.play.icon
+            else if activity.Status.StatusType.Description.toLowerCase().includes('arrival scan')
+              i.black.pause.circle.icon
+            else if activity.Status.StatusType.Description.toLowerCase().includes('origin')
+              i.black.check.square.icon
+            else if activity.Status.StatusType.Description.toLowerCase().includes('billing information received')
+              i.black.credit.card.alternative.icon
+            else
+              i.red.location.arrow.icon
+            .content
+              .header.small-spacing #{activity.Status.StatusType.Description}
+              .sub.header.small-spacing #{moment(`${activity.Date} ${activity.Time}`).format('dddd, MMMM Do, YYYY h:mma')}
+              if activity.Status.StatusType.Description.toLowerCase().includes('delivered')
+                a(href='https://wwwapps.ups.com/WebTracking/processPOD?Requester=&tracknum=' + tracking_number + '&refNumbers=&loc=en_US')
+                  .ui.blue.label(data-inverted="", data-tooltip="View Proof of Delivery", data-position="bottom center")
+                    i.pencil.icon
+                    span #{activity.ActivityLocation.SignedForByName}
+                    .detail #{activity.ActivityLocation.Description}
+              if activity.ActivityLocation.Address.City
+                .ui.green.label
+                  i.location.marker.icon
+                  span #{activity.ActivityLocation.Address.City}
+                  .detail #{activity.ActivityLocation.Address.StateProvinceCode}
+      else
         .ui.icon.message
-          if activity.Status.StatusType.Description.toLowerCase().includes('delivered')
+          if selected_package.activity.Status.StatusType.Description.toLowerCase().includes('delivered')
             i.black.home.icon
-          else if activity.Status.StatusType.Description.toLowerCase().includes('out for delivery')
+          else if selected_package.activity.Status.StatusType.Description.toLowerCase().includes('out for delivery')
             i.black.shipping.icon
-          else if activity.Status.StatusType.Description.toLowerCase().includes('departure scan')
+          else if selected_package.activity.Status.StatusType.Description.toLowerCase().includes('departure scan')
             i.black.video.play.icon
-          else if activity.Status.StatusType.Description.toLowerCase().includes('arrival scan')
+          else if selected_package.activity.Status.StatusType.Description.toLowerCase().includes('arrival scan')
             i.black.pause.circle.icon
-          else if activity.Status.StatusType.Description.toLowerCase().includes('origin')
+          else if selected_package.activity.Status.StatusType.Description.toLowerCase().includes('origin')
             i.black.check.square.icon
-          else if activity.Status.StatusType.Description.toLowerCase().includes('billing information received')
+          else if selected_package.activity.Status.StatusType.Description.toLowerCase().includes('billing information received')
             i.black.credit.card.alternative.icon
           else
             i.red.location.arrow.icon
           .content
-            .header.small-spacing #{activity.Status.StatusType.Description}
-            .sub.header.small-spacing #{moment(`${activity.Date} ${activity.Time}`).format('dddd, MMMM Do, YYYY h:mma')}
-            if activity.Status.StatusType.Description.toLowerCase().includes('delivered')
-              .ui.blue.label
-                i.pencil.icon
-                span #{activity.ActivityLocation.SignedForByName}
-                .detail #{activity.ActivityLocation.Description}
-            if activity.ActivityLocation.Address.City
+            .header.small-spacing #{selected_package.activity.Status.StatusType.Description}
+            .sub.header.small-spacing #{moment(`${selected_package.activity.Date} ${selected_package.activity.Time}`).format('dddd, MMMM Do, YYYY h:mma')}
+            if selected_package.activity.Status.StatusType.Description.toLowerCase().includes('delivered')
+              a(href='https://wwwapps.ups.com/WebTracking/processPOD?Requester=&tracknum=' + tracking_number + '&refNumbers=&loc=en_US')
+                .ui.blue.label(data-inverted="", data-tooltip="View Proof of Delivery", data-position="bottom center")
+                  i.pencil.icon
+                  span #{selected_package.activity.ActivityLocation.SignedForByName}
+                  .detail #{selected_package.activity.ActivityLocation.Description}
+            if selected_package.activity.ActivityLocation.Address.City
               .ui.green.label
                 i.location.marker.icon
-                span #{activity.ActivityLocation.Address.City}
-                .detail #{activity.ActivityLocation.Address.StateProvinceCode}
+                span #{selected_package.activity.ActivityLocation.Address.City}
+                .detail #{selected_package.activity.ActivityLocation.Address.StateProvinceCode}
 
 block scripts
   script(type="text/javascript") $('.ui.accordion').accordion();

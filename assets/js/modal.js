@@ -19,6 +19,7 @@ $(document).ready(function() {
                         } else {
                             $('#tracking_number_warning .header').text('');
                             $('#tracking_number_warning').hide();
+                            location.reload(true);
                         }
                     },
                     error: function(data) {
@@ -30,10 +31,27 @@ $(document).ready(function() {
                         } else {
                             $('#tracking_number_warning .header').text('');
                             $('#tracking_number_warning').hide();
+                            location.reload(true);
                         }
                     }
                 });
             }
         }).modal('attach events', '.tracking.button', 'show').modal('setting', 'transition', 'horizontal flip');
     }
+    $('.remove.modal').modal({
+        onDeny: function() {
+        },
+        onApprove: function() {
+            $.ajax({
+                type: 'GET',
+                url: '/remove/' + $('#remove_tracking_number').val(),
+                success: function(data) {
+                    location.reload(true);
+                },
+                error: function(data) {
+                    location.reload(true);
+                }
+            });
+        }
+    }).modal('attach events', '.remove.button', 'show').modal('setting', 'transition', 'horizontal flip');
 });

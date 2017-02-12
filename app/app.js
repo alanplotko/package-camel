@@ -90,13 +90,20 @@ app.locals.moment = require('moment');
 app.locals.title = "Package Camel";
 app.locals.navigation = [{
   title: 'Home',
-  url: '/'
+  url: '/',
+  hidden: false
 }, {
   title: 'Dashboard',
-  url: '/dashboard'
+  url: '/dashboard',
+  hidden: true
 }, {
   title: 'Settings',
-  url: '/settings'
+  url: '/settings',
+  hidden: true
+}, {
+  title: 'Logout',
+  url: '/logout',
+  hidden: true
 }];
 
 // Schemas
@@ -129,6 +136,8 @@ app.get('/', function(req, res) {
   delete req.session.invalid_email;
   return res.render('index', {
     path: res.locals.path,
+    active: req.session.email,
+    active: req.session.email,
     error: error_message
   });
 });
@@ -141,6 +150,8 @@ app.get('/dashboard', function(req, res) {
     } else {
       return res.render('dashboard', {
           path: res.locals.path,
+          active: req.session.email,
+          active: req.session.email,
           email: result.email,
           packages: result.packages,
           error: req.flash('invalid_tracking_error')
@@ -164,13 +175,21 @@ app.post('/dashboard', function(req, res) {
               return res.redirect('/');
             } else {
               sparkpost_client.transmissions.send({
-                content: {
-                  from: 'postmaster@packagecamel.alanplotko.com',
-                  subject: 'Welcome!',
-                  html:'<html><body><p>Welcome to Package Camel!</p><p>You can now begin adding packages for tracking!</p><p>Enjoy!</p></body></html>'
+                "options": {
+                  "open_tracking": true,
+                  "click_tracking": true
                 },
-                recipients: [{
-                  address: email_address
+                "content": {
+                  "template_id": "welcome",
+                  "use_draft_template": false
+                },
+                "substitution_data": {
+                  "greeting": "Welcome",
+                  "email_address": user.email.split("@")[0],
+                  "message": "We're happy to have you here! You can get started by visiting the <a href='http://localhost:3000/dashboard'>dashboard</a>.",
+                },
+                "recipients": [{
+                  address: user.email
                 }]
               })
               .then(data => {
@@ -178,6 +197,7 @@ app.post('/dashboard', function(req, res) {
                 req.session.email = email_address;
                 return res.render('dashboard', {
                     path: res.locals.path,
+                    active: req.session.email,
                     email: email_address,
                     packages: [],
                     error: req.flash('invalid_tracking_error')
@@ -188,6 +208,7 @@ app.post('/dashboard', function(req, res) {
                 req.session.email = email_address;
                 return res.render('dashboard', {
                     path: res.locals.path,
+                    active: req.session.email,
                     email: email_address,
                     packages: [],
                     error: req.flash('invalid_tracking_error')
@@ -199,6 +220,7 @@ app.post('/dashboard', function(req, res) {
           req.session.email = email_address;
           return res.render('dashboard', {
               path: res.locals.path,
+              active: req.session.email,
               email: result.email,
               packages: result.packages,
               error: req.flash('invalid_tracking_error')
@@ -246,11 +268,12 @@ app.post('/add/tracking', function(req, res) {
           });
           return user.save(function(err) {
             if(err) {
+              console.log(err);
               req.flash('invalid_tracking_error', 'An error occurred. Please try again.');
               res.send(req.flash());
               return false;
             } else {
-              return true;
+              return res.redirect('/dashboard');
             }
           });
         }
@@ -265,18 +288,31 @@ app.get('/track/:tracking_number', function(req, res) {
     if (err) return res.redirect('/');
     for (var i in user.packages) {
       if (user.packages[i].tracking_number === tracking_number) {
-        console.log('True');
         return res.render('track', {
             path: res.locals.path,
-            selected_package: user.packages[i]
+            active: req.session.email,
+            selected_package: user.packages[i],
+            tracking_number: tracking_number
         });
       }
     }
     return res.render('track', {
       path: res.locals.path,
+      active: req.session.email,
       selected_package: null
     });
   });
+});
+
+app.get('/remove/:tracking_number', function(req, res) {
+  var tracking_number = validator.trim(validator.escape(req.params.tracking_number));
+  User.update({ email: req.session.email }, { $pull: { 'packages': { 'tracking_number': tracking_number } } },
+    function(err, numberAffected, rawResponse) {
+      if (err) return res.redirect('/');
+      console.log(numberAffected);
+      console.log(rawResponse);
+      return res.redirect('/dashboard');
+    });
 });
 
 app.get('/settings', function(req, res) {
@@ -285,6 +321,7 @@ app.get('/settings', function(req, res) {
 
     return res.render('settings', {
         path: res.locals.path,
+        active: req.session.email,
         settings: user.subscriptions == undefined ? {} : user.subscriptions
     });
   });
@@ -326,54 +363,71 @@ app.get('/update/all/users', function(req, res) {
               if(err) {
                 return callback(err);
               } else {
-                if (pkg.activity.length < user.packages[pkg.idx].activity.length) {
+                if (user.subscriptions && Object.keys(user.subscriptions).length > 0 && pkg.activity.length < user.packages[pkg.idx].activity.length) {
                   var diff = user.packages[pkg.idx].activity.length - pkg.activity.length - 1;
                   console.log(diff);
+                  var message = "<ul>";
                   for (var j = diff; j >= 0; j--) {
-                    var message = null;
-                    if (user.packages[pkg.idx].activity[j].Status.StatusType.Description.toLowerCase().includes('delivered') &&
-                      user.subscriptions.hasOwnProperty('delivered')) {
-                      message = "Your package has been marked as delivered by UPS!"
-                    }
-                    else if (user.packages[pkg.idx].activity[j].Status.StatusType.Description.toLowerCase().includes('out for delivery') &&
-                      user.subscriptions.hasOwnProperty('out_for_delivery')) {
-                      message = "Your package has been marked as out for delivery!"
-                    }
-                    else if (user.packages[pkg.idx].activity[j].Status.StatusType.Description.toLowerCase().includes('departure scan') &&
-                      user.subscriptions.hasOwnProperty('departure_scan')) {
-                      message = "Your package has just departed " + user.packages[pkg.idx].activity[j].ActivityLocation.Address.City + ", " + user.packages[pkg.idx].activity[j].ActivityLocation.Address.StateProvinceCode + "!"
-                    }
-                    else if (user.packages[pkg.idx].activity[j].Status.StatusType.Description.toLowerCase().includes('arrival scan') &&
-                      user.subscriptions.hasOwnProperty('arrival_scan')) {
-                      message = "Your package has just arrived at " + user.packages[pkg.idx].activity[j].ActivityLocation.Address.City + ", " + user.packages[pkg.idx].activity[j].ActivityLocation.Address.StateProvinceCode + "!"
-                    }
-                    else if (user.packages[pkg.idx].activity[j].Status.StatusType.Description.toLowerCase().includes('origin') &&
-                      user.subscriptions.hasOwnProperty('origin')) {
-                      message = "Your package has just gone through the origin scan!"
-                    }
-                    else if (user.packages[pkg.idx].activity[j].Status.StatusType.Description.toLowerCase().includes('billing information received') &&
+                    if (user.packages[pkg.idx].activity[j].Status.StatusType.Description.toLowerCase().includes('billing information received') &&
                       user.subscriptions.hasOwnProperty('billing_information_received')) {
-                      message = "UPS has received billing information for your package!"
+                      message += "<li>" + app.locals.moment(user.packages[pkg.idx].activity[j].Date + " "
+                        + user.packages[pkg.idx].activity[j].Time).format("M/DD/YY (H:MMa): ") + "UPS has received billing information for your package!</li>"
+                    } else if (user.packages[pkg.idx].activity[j].Status.StatusType.Description.toLowerCase().includes('origin') &&
+                      user.subscriptions.hasOwnProperty('origin')) {
+                      message += "<li>" + app.locals.moment(user.packages[pkg.idx].activity[j].Date + " "
+                        + user.packages[pkg.idx].activity[j].Time).format("M/DD/YY (H:MMa): ") + "Your package has just gone through the origin scan!</li>"
+                    } else if (user.packages[pkg.idx].activity[j].Status.StatusType.Description.toLowerCase().includes('arrival scan') &&
+                      user.subscriptions.hasOwnProperty('arrival_scan')) {
+                      message += "<li>" + app.locals.moment(user.packages[pkg.idx].activity[j].Date + " "
+                        + user.packages[pkg.idx].activity[j].Time).format("M/DD/YY (H:MMa): ") + "Your package has just arrived at " + user.packages[pkg.idx].activity[j].ActivityLocation.Address.City + ", " + user.packages[pkg.idx].activity[j].ActivityLocation.Address.StateProvinceCode + "!</li>"
+                    } else if (user.packages[pkg.idx].activity[j].Status.StatusType.Description.toLowerCase().includes('departure scan') &&
+                      user.subscriptions.hasOwnProperty('departure_scan')) {
+                      message += "<li>" + app.locals.moment(user.packages[pkg.idx].activity[j].Date + " "
+                        + user.packages[pkg.idx].activity[j].Time).format("M/DD/YY (H:MMa): ") + "Your package has just departed " + user.packages[pkg.idx].activity[j].ActivityLocation.Address.City + ", " + user.packages[pkg.idx].activity[j].ActivityLocation.Address.StateProvinceCode + "!</li>"
+                    } else if (user.packages[pkg.idx].activity[j].Status.StatusType.Description.toLowerCase().includes('out for delivery') &&
+                      user.subscriptions.hasOwnProperty('out_for_delivery')) {
+                      message += "<li>" + app.locals.moment(user.packages[pkg.idx].activity[j].Date + " "
+                        + user.packages[pkg.idx].activity[j].Time).format("M/DD/YY (H:MMa): ") + "Your package has been marked as out for delivery!</li>"
+                    } else if (user.packages[pkg.idx].activity[j].Status.StatusType.Description.toLowerCase().includes('delivered') &&
+                      user.subscriptions.hasOwnProperty('delivered')) {
+                      message += "<li>" + app.locals.moment(user.packages[pkg.idx].activity[j].Date + " "
+                        + user.packages[pkg.idx].activity[j].Time).format("M/DD/YY (H:MMa): ") + "Your package has been marked as delivered by UPS!</li>"
                     }
-                    if (message != null) {
-                      sparkpost_client.transmissions.send({
-                        content: {
-                          from: 'postmaster@packagecamel.alanplotko.com',
-                          subject: '[Update] ' + user.packages[pkg.idx].tracking_number,
-                          html:'<html><body><p>Hi there!</p><p>' + message + '</p><p>Enjoy!</p></body></html>'
-                        },
-                        recipients: [{
-                          address: user.email
-                        }]
-                      })
-                      .then(data => {
-                        console.log(data);
-                        return callback(null, data);
-                      })
-                      .catch(err => {
-                        console.log(err);
-                      });
-                    }
+                  }
+                  message += "</ul>"
+                  if (message != "<ul></ul>") {
+                    sparkpost_client.transmissions.send({
+                      "options": {
+                        "open_tracking": true,
+                        "click_tracking": true
+                      },
+                      "content": {
+                        "template_id": "my-first-email",
+                        "use_draft_template": false
+                      },
+                      "substitution_data": {
+                        "greeting": "Hi",
+                        "tracking_number": user.packages[pkg.idx].tracking_number,
+                        "email_address": user.email.split("@")[0],
+                        "message": message.substring(message.lastIndexOf("<li>") + 4, message.indexOf('</ul>') - 5),
+                        "item_list": "<br /><br />Previous Updates:<br /><br />" + message.substring(0, message.lastIndexOf("<li>")) + "</ul>",
+                        "method": user.packages[pkg.idx].method,
+                        "weight": user.packages[pkg.idx].weight,
+                        "today": app.locals.moment().format('MMDDYY')
+                      },
+                      "recipients": [{
+                        address: user.email
+                      }]
+                    })
+                    .then(data => {
+                      console.log(data);
+                      console.log(message.substring(message.lastIndexOf("<li>") + 4, message.indexOf('</ul>') - 5));
+                      console.log(message.substring(0, message.lastIndexOf("<li>")) + "</ul>");
+                      return callback(null, data)
+                    })
+                    .catch(err => {
+                      console.log(err);
+                    });
                   }
                 } else {
                   return callback(null, null);
@@ -391,6 +445,13 @@ app.get('/update/all/users', function(req, res) {
   });
 });
 
+app.get('/logout', function(req, res) {
+  req.session.destroy(function(err) {
+    console.log(err);
+  });
+  return res.redirect('/');
+});
+
 // --------- Miscellaneous Routes & Helper Functions ---------
 
 /**
@@ -400,6 +461,7 @@ app.get('/update/all/users', function(req, res) {
  */
 app.all('*', function(req, res, next) {
   res.render('error', {
+    active: req.session.email,
     status: 404,
     message: 'Page Not Found',
     description: 'That\'s strange! We couldn\'t find what you wear looking for! Let\'s bring you back home.'

@@ -21,6 +21,10 @@ button.large-text {
     padding-right: 1.2em;
 }
 
+.ui.card > .content {
+    padding: 30px 0;
+}
+
 .ui.card > .content,
 .ui.cards > .card > .content {
     border-top: none;

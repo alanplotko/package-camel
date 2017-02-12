@@ -16,10 +16,13 @@ html
           .item
             i.big.black.shipping.icon
           each item in locals.navigation
-            if (path == item.url || (item.url != '/' && path.search(item.url) > -1))
-              a.active.item(href=item.url) #{item.title}
-            else
-              a.item(href=item.url) #{item.title}
+            if ((active != undefined && item.hidden) || (item.url == '/' && active == undefined))
+              if (path == item.url || (item.url != '/' && path.search(item.url) > -1))
+                a.active.item(href=item.url) #{item.title}
+              else if (item.url == '/logout')
+                a.item(href=item.url) #{item.title} (#{active.split("@")[0]})
+              else
+                a.item(href=item.url) #{item.title}
 
     block content
 

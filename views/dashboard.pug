@@ -10,9 +10,10 @@ block content
       .ui.four.column.relaxed.grid.slightly-padded
         .column
           .ui.card
+            .ui.blue.ribbon.label LET'S GET STARTED!
             .content
               .header New Package Tracking
-              .description Want to add a new package?<br />Let's get started!
+              .description Want to add a new package?
             .ui.bottom.attached.blue.tracking.button
               i.add.icon
               span Add Tracking Number
@@ -23,9 +24,14 @@ block content
               .content
                 .header #{package.tracking_number}
                 .description Arriving from #{package.from.City}, #{package.from.StateProvinceCode}
-              a.ui.bottom.attached.brown.button(href=`/track/${package.tracking_number}`)
-                i.edit.icon
-                span Manage Package
+              .ui.buttons
+                a.ui.brown.button(href=`/track/${package.tracking_number}`)
+                  i.location.arrow.icon
+                  span View
+                .or
+                a.ui.brown.remove.button(data-tracking-number=`${package.tracking_number}`, onclick='$("#remove_tracking_number").val(this.getAttribute("data-tracking-number"))')
+                  i.delete.icon
+                  span Remove
 
   .ui.tracking.modal
     .ui.icon.header
@@ -45,6 +51,22 @@ block content
       .ui.green.ok.button
         i.checkmark.icon
         span Add
+
+  .ui.remove.modal
+    .ui.icon.header
+      i.archive.icon
+      span Remove Tracking Number
+    .ui.fluid.icon.large.disabled.hidden.input
+      input#remove_tracking_number(type="hidden")
+    .content
+      p Are you sure you want to remove this tracking number?
+    .actions
+      .ui.red.cancel.button
+        i.remove.icon
+        span Cancel
+      .ui.green.ok.button
+        i.checkmark.icon
+        span Remove
 
   block scripts
     script(src='/assets/js/modal.js')
