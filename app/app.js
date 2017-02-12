@@ -16,6 +16,7 @@ var debug = process.env.PKGCAMEL_DEBUG != null;
 require('express-mongoose');
 var SparkPost = require('sparkpost');
 var sparkpost_client = new SparkPost(process.env.PKGCAMEL_SPARKPOST);
+var async = require('async');
 
 
 // --------- Support bodies ---------
@@ -304,46 +305,53 @@ app.post('/update/notifications', function(req, res) {
 });
 
 app.get('/update/all/users', function(req, res) {
+  var packages = [];
   User.find({}, function(err, users) {
     users.forEach(function(user) {
       for (var i = 0; i < user.packages.length; i++) {
-        var activity = user.packages[i].activity;
-        var currIdx = i;
-        ups.track(user.packages[i].tracking_number, function(err, result) {
+        packages.push({
+          'tracking_number': user.packages[i].tracking_number,
+          'activity': user.packages[i].activity,
+          'idx': i
+        });
+      }
+      async.each(packages, function(pkg, callback) {
+        ups.track(pkg.tracking_number, function(err, result) {
           if (err) {
-            return;
+            return callback(err);
           } else {
-            user.packages[currIdx].activity = result.Shipment.Package.Activity;
+            user.packages[pkg.idx].activity = result.Shipment.Package.Activity;
+            console.log('Updated activity');
             user.save(function(err) {
               if(err) {
-                return;
+                return callback(err);
               } else {
-                if (activity.length < user.packages[currIdx].activity.length) {
-                  var diff = user.packages[currIdx].activity.length - activity.length - 1;
+                if (pkg.activity.length < user.packages[pkg.idx].activity.length) {
+                  var diff = user.packages[pkg.idx].activity.length - pkg.activity.length - 1;
+                  console.log(diff);
                   for (var j = diff; j >= 0; j--) {
                     var message = null;
-                    console.log(j);
-                    if (user.packages[j].activity.Status.StatusType.Description.toLowerCase().includes('delivered') &&
+                    if (user.packages[pkg.idx].activity[j].Status.StatusType.Description.toLowerCase().includes('delivered') &&
                       user.subscriptions.hasOwnProperty('delivered')) {
                       message = "Your package has been marked as delivered by UPS!"
                     }
-                    else if (user.packages[j].activity.Status.StatusType.Description.toLowerCase().includes('out for delivery') &&
+                    else if (user.packages[pkg.idx].activity[j].Status.StatusType.Description.toLowerCase().includes('out for delivery') &&
                       user.subscriptions.hasOwnProperty('out_for_delivery')) {
                       message = "Your package has been marked as out for delivery!"
                     }
-                    else if (user.packages[j].activity.Status.StatusType.Description.toLowerCase().includes('departure scan') &&
+                    else if (user.packages[pkg.idx].activity[j].Status.StatusType.Description.toLowerCase().includes('departure scan') &&
                       user.subscriptions.hasOwnProperty('departure_scan')) {
-                      message = "Your package has just departed " + user.packages[j].activity.user.packages[j].activityLocation.Address.City + ", " + user.packages[j].activity.user.packages[j].activityLocation.Address.StateProvinceCode + "!"
+                      message = "Your package has just departed " + user.packages[pkg.idx].activity[j].ActivityLocation.Address.City + ", " + user.packages[pkg.idx].activity[j].ActivityLocation.Address.StateProvinceCode + "!"
                     }
-                    else if (user.packages[j].activity.Status.StatusType.Description.toLowerCase().includes('arrival scan') &&
+                    else if (user.packages[pkg.idx].activity[j].Status.StatusType.Description.toLowerCase().includes('arrival scan') &&
                       user.subscriptions.hasOwnProperty('arrival_scan')) {
-                      message = "Your package has just arrived at " + user.packages[j].activity.user.packages[j].activityLocation.Address.City + ", " + user.packages[j].activity.user.packages[j].activityLocation.Address.StateProvinceCode + "!"
+                      message = "Your package has just arrived at " + user.packages[pkg.idx].activity[j].ActivityLocation.Address.City + ", " + user.packages[pkg.idx].activity[j].ActivityLocation.Address.StateProvinceCode + "!"
                     }
-                    else if (user.packages[j].activity.Status.StatusType.Description.toLowerCase().includes('origin') &&
+                    else if (user.packages[pkg.idx].activity[j].Status.StatusType.Description.toLowerCase().includes('origin') &&
                       user.subscriptions.hasOwnProperty('origin')) {
                       message = "Your package has just gone through the origin scan!"
                     }
-                    else if (user.packages[j].activity.Status.StatusType.Description.toLowerCase().includes('billing information received') &&
+                    else if (user.packages[pkg.idx].activity[j].Status.StatusType.Description.toLowerCase().includes('billing information received') &&
                       user.subscriptions.hasOwnProperty('billing_information_received')) {
                       message = "UPS has received billing information for your package!"
                     }
@@ -351,7 +359,7 @@ app.get('/update/all/users', function(req, res) {
                       sparkpost_client.transmissions.send({
                         content: {
                           from: 'postmaster@packagecamel.alanplotko.com',
-                          subject: '[Update] ' + user.packages[j].tracking_number,
+                          subject: '[Update] ' + user.packages[pkg.idx].tracking_number,
                           html:'<html><body><p>Hi there!</p><p>' + message + '</p><p>Enjoy!</p></body></html>'
                         },
                         recipients: [{
@@ -360,18 +368,25 @@ app.get('/update/all/users', function(req, res) {
                       })
                       .then(data => {
                         console.log(data);
+                        return callback(null, data);
                       })
                       .catch(err => {
                         console.log(err);
                       });
                     }
                   }
+                } else {
+                  return callback(null, null);
                 }
               }
             });
           }
         });
-      }
+      }, function(err, results) {
+        console.log(err);
+        console.log(results);
+        return res.redirect('/');
+      });
     });
   });
 });
