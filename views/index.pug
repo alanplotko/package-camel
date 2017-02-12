@@ -1,0 +1,13 @@
+extends layout
+
+block content
+  .ui.container.center.aligned.padded
+    .ui.extra.huge.header Package Camel
+      .extra.sub.header Get notifications for your shipments
+    form.ui.warning.form.getstarted(action="/dashboard",method="POST")
+      if error
+        .ui.warning.message.main
+          .header !{error}
+      .ui.large.input
+        input.long(type="text", placeholder="Email Address", name="email")
+      button.ui.button.large-text.margin-left(type="submit") Get Started

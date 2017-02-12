@@ -1,0 +1,47 @@
+extends layout
+
+block content
+  .ui.container.center.aligned
+    if packages.length === 0
+      h1.padded You currently have no tracking numbers added. <br /> Click below to get started!
+      br
+      button.ui.huge.tracking.button.blue Add Tracking Number
+    else
+      .ui.four.column.grid.slightly-padded
+        .column
+          .ui.fluid.card
+            .content
+              .header New Package Tracking
+              .description Want to add a new package?<br />Let's get started!
+            .ui.bottom.attached.blue.tracking.button
+              i.add.icon
+              span Add Tracking Number
+        for package in packages
+          .column
+            .ui.fluid.card
+              .content
+                .header #{package.tracking_number}
+                .description Some package
+              .ui.bottom.attached.orange.button
+                i.edit.icon
+                span Manage Package
+
+  .ui.tracking.modal
+    .ui.icon.header
+      i.archive.icon
+      span Add Tracking Number
+    .content
+      p Enter your UPS tracking number below to add it to your dashboard!
+      .ui.fluid.icon.large.input
+        input#tracking_number(type="text", placeholder="UPS Tracking Number")
+        i.search.icon
+    .actions
+      .ui.red.cancel.inverted.button
+        i.remove.icon
+        span Cancel
+      .ui.green.ok.inverted.button
+        i.checkmark.icon
+        span Add
+
+  block scripts
+    script(src='/assets/js/modal.js')

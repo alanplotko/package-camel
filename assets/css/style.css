@@ -1,0 +1,50 @@
+body {
+    background-color: #EEF1EF;
+}
+
+button.large-text {
+    display: block;
+    font-size: 16px!important;
+    margin-top: 200px;
+}
+
+input.long {
+    width: 300px!important;
+}
+
+.main.warning {
+    width: 444px;
+    margin: 0 auto 10px auto;
+}
+
+.ui.extra.header {
+    font-size: 48px!important;
+}
+
+.extra.sub.header {
+    font-size: 24px!important;
+}
+
+.slightly-padded {
+    padding-top: 20px!important;
+}
+
+.padded {
+    padding-top: 100px;
+}
+
+.margin-left {
+    margin-left: 10px!important;
+}
+
+.splash {
+    padding: 20px;
+}
+
+.vert-center {
+    margin-top: 100px;
+}
+
+.vert-center.half {
+    margin-top: 50px;
+}
